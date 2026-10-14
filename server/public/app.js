@@ -354,7 +354,7 @@
                   const isFirst = idx === 0;
                   const isTarget = mode === 'first_trade' ? isFirst : true;
                   const curTP = parseFloat(ord.takeProfit);
-                  const isSynced = oppositeLiq > 0 && !isNaN(curTP) && Math.abs(curTP - oppositeLiq) <= 0.02;
+                  const isSynced = oppositeLiq > 0 && !isNaN(curTP) && Math.abs(curTP - oppositeLiq) <= 0.50;
                   const sideClass = (ord.side || '').toUpperCase() === 'BUY' ? 'side-buy' : 'side-sell';
                   const ordPnl = parseFloat(ord.profitCurrency) || 0;
                   const ordPnlClass = ordPnl >= 0 ? 'text-green' : 'text-red';

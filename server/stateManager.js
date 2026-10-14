@@ -259,6 +259,11 @@ class StateManager {
     const pair = this.pairs.get(pairId);
     if (!pair) return;
 
+    if (triggerSource === 'MANUAL_TRIGGER') {
+      if (pair.lockedOrders) pair.lockedOrders.clear();
+      this.pendingCommands.clear();
+    }
+
     if (pair.status !== 'active') {
       return; // Paused
     }
@@ -332,16 +337,35 @@ class StateManager {
    * - Command in-flight (cooldown)? Don't spam.
    */
   syncTakeProfit(targetClient, orders, targetPrice, reason, pair) {
+    if (!pair.lockedOrders) {
+      pair.lockedOrders = new Set();
+    }
+
+    // Clean up lockedOrders: if an order was closed/removed, remove it from lockedOrders
+    const activeOrderIds = new Set(orders.map(o => o.orderId));
+    for (const lockedId of pair.lockedOrders) {
+      if (!activeOrderIds.has(lockedId)) {
+        pair.lockedOrders.delete(lockedId);
+        this.log('info', 'order', `Order #${lockedId} closed. Released lock for next trade cascade.`, { pairId: pair.id });
+      }
+    }
+
     const ordersToSync = pair.mode === 'first_trade' ? [orders[0]] : orders;
 
     for (const order of ordersToSync) {
       if (!order || !order.orderId) continue;
 
       const currentTP = parseFloat(order.takeProfit);
-      const isAlreadySet = !isNaN(currentTP) && Math.abs(currentTP - targetPrice) <= 0.02;
 
+      // Rule 1: If order was already successfully set and locked, DO NOT TOUCH IT AGAIN!
+      if (pair.lockedOrders.has(order.orderId) && !isNaN(currentTP) && currentTP > 0) {
+        continue;
+      }
+
+      // Rule 2: If current TP in DOM already matches targetPrice (within 0.50), mark locked and skip!
+      const isAlreadySet = !isNaN(currentTP) && Math.abs(currentTP - targetPrice) <= 0.50;
       if (isAlreadySet) {
-        // Edge case: Already set correctly! Do not spam or re-open modal.
+        pair.lockedOrders.add(order.orderId);
         continue;
       }
 
@@ -353,11 +377,11 @@ class StateManager {
       if (pending) {
         const timeDiff = now - pending.timestamp;
         // If same target price is already in flight, wait at least 3 seconds
-        if (Math.abs(pending.targetPrice - targetPrice) <= 0.02 && timeDiff < 3000) {
+        if (Math.abs(pending.targetPrice - targetPrice) <= 0.05 && timeDiff < 3000) {
           continue;
         }
-        // If target price changed (liquidation moved), wait at least 600ms before overwriting
-        if (timeDiff < 600) {
+        // If target price changed (liquidation moved), wait at least 1500ms before overwriting
+        if (timeDiff < 1500) {
           continue;
         }
       }
@@ -367,7 +391,7 @@ class StateManager {
 
       const isWronglySet = !isNaN(currentTP) && currentTP > 0;
       const statusText = isWronglySet
-        ? `Fixing wrong TP on ${targetClient.id} (Current: ${currentTP} -> New: ${targetPrice})`
+        ? `Fixing wrong TP on ${targetClient.id} (Current: ${currentTP} -> Correct Target: ${targetPrice})`
         : `Setting TP on ${targetClient.id} to ${targetPrice}`;
 
       this.log('sync', 'order', `${statusText} for Order #${order.orderId} [${reason}]`, {
@@ -385,7 +409,7 @@ class StateManager {
           orderId: order.orderId,
           targetPrice: targetPrice,
           symbol: order.symbol,
-          tolerance: 0.02,
+          tolerance: 0.50,
           reason
         }
       });
@@ -406,9 +430,21 @@ class StateManager {
     const { orderId, success, targetPrice, error, message, skipped } = payload;
     const key = `${clientId}:${orderId}`;
 
+    // Helper to lock order
+    const lockOrder = () => {
+      const client = this.clients.get(clientId);
+      if (client && client.pairId) {
+        const pair = this.pairs.get(client.pairId);
+        if (pair) {
+          if (!pair.lockedOrders) pair.lockedOrders = new Set();
+          pair.lockedOrders.add(orderId);
+        }
+      }
+    };
+
     if (skipped) {
-      // Already correct, clear cooldown early
       this.pendingCommands.delete(key);
+      lockOrder();
       return;
     }
 
@@ -418,6 +454,8 @@ class StateManager {
         orderId,
         targetPrice
       });
+      // Lock this order so it is NEVER changed again while open
+      lockOrder();
       // Allow re-evaluation after 500ms
       setTimeout(() => this.pendingCommands.delete(key), 500);
     } else {
@@ -503,8 +541,8 @@ class StateManager {
         syncStatus: {
           targetTPA: liqB > 0 ? liqB : null,
           targetTPB: liqA > 0 ? liqA : null,
-          inSyncA: ordersA.length > 0 && liqB > 0 && Math.abs((parseFloat(ordersA[0].takeProfit) || 0) - liqB) <= 0.02,
-          inSyncB: ordersB.length > 0 && liqA > 0 && Math.abs((parseFloat(ordersB[0].takeProfit) || 0) - liqA) <= 0.02
+          inSyncA: ordersA.length > 0 && (pair.lockedOrders?.has(ordersA[0].orderId) || (liqB > 0 && Math.abs((parseFloat(ordersA[0].takeProfit) || 0) - liqB) <= 0.50)),
+          inSyncB: ordersB.length > 0 && (pair.lockedOrders?.has(ordersB[0].orderId) || (liqA > 0 && Math.abs((parseFloat(ordersB[0].takeProfit) || 0) - liqA) <= 0.50))
         }
       };
     });

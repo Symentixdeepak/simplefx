@@ -201,7 +201,7 @@
   // --- 2. TAKE PROFIT AUTOMATION ENGINE ---
 
   async function executeSetTakeProfit(payload) {
-    const { orderId, targetPrice, tolerance = 0.02 } = payload;
+    const { orderId, targetPrice, tolerance = 0.50 } = payload;
     console.log(`[SimpleFX HedgeMaster] Executing SET_TP for Order #${orderId} -> Target: ${targetPrice}`);
 
     if (!orderId || !targetPrice || isNaN(targetPrice)) {
@@ -272,11 +272,17 @@
       return { success: false, error: 'Take profit input field not found inside dialog' };
     }
 
-    // Step F: Format price and inject value
-    const targetPriceStr = targetPrice.toFixed(2);
+    // Step F: Format price and inject EXACT target value (NO ArrowUp spinner increments)
+    const targetPriceStr = Number(targetPrice).toFixed(2);
     input.focus();
+    input.select();
 
-    // Use native prototype value setter to properly notify Angular reactive form
+    try {
+      document.execCommand('selectAll', false, null);
+      document.execCommand('insertText', false, targetPriceStr);
+    } catch (e) {}
+
+    // Use native prototype value setter to guarantee Angular reactive form catches it
     const nativeValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
     if (nativeValueSetter) {
       nativeValueSetter.call(input, targetPriceStr);
@@ -284,10 +290,9 @@
       input.value = targetPriceStr;
     }
 
-    // Dispatch input events
+    // Dispatch input and change events
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
-    input.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'ArrowUp' }));
 
     // Wait 120ms for Angular validation (validateStepLevels)
     await sleep(120);
