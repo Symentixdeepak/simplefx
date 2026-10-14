@@ -1,7 +1,7 @@
-/**
- * SimpleFX Cross-Hedging State Manager
- * Handles client registrations, pair configurations, liquidation-to-TP synchronization, and audit logging.
- */
+const fs = require('fs');
+const path = require('path');
+
+const PAIRS_FILE = path.join(__dirname, 'pairs.json');
 
 class StateManager {
   constructor(broadcastCallback) {
@@ -14,6 +14,41 @@ class StateManager {
     this.logs = [];
     // Track pending commands to prevent rapid duplicate commands: `${clientId}:${orderId}` -> timestamp
     this.pendingCommands = new Map();
+
+    // Load previously configured pairs from disk
+    this.loadPersistedPairs();
+  }
+
+  loadPersistedPairs() {
+    try {
+      if (fs.existsSync(PAIRS_FILE)) {
+        const raw = fs.readFileSync(PAIRS_FILE, 'utf8');
+        const list = JSON.parse(raw);
+        if (Array.isArray(list)) {
+          for (const p of list) {
+            if (p && p.id) {
+              p.lockedOrders = new Set(Array.isArray(p.lockedOrders) ? p.lockedOrders : []);
+              this.pairs.set(p.id, p);
+            }
+          }
+          console.log(`[StateManager] Successfully restored ${this.pairs.size} pair(s) from ${PAIRS_FILE}`);
+        }
+      }
+    } catch (err) {
+      console.error('[StateManager] Failed to load persisted pairs from disk:', err);
+    }
+  }
+
+  savePairs() {
+    try {
+      const serializable = Array.from(this.pairs.values()).map(p => ({
+        ...p,
+        lockedOrders: Array.from(p.lockedOrders || [])
+      }));
+      fs.writeFileSync(PAIRS_FILE, JSON.stringify(serializable, null, 2), 'utf8');
+    } catch (err) {
+      console.error('[StateManager] Failed to save pairs to disk:', err);
+    }
   }
 
   log(level, type, message, details = {}) {
@@ -156,6 +191,7 @@ class StateManager {
       mode: mode || 'first_trade', // 'first_trade' | 'all_trades'
       autoSync: autoSync !== undefined ? autoSync : true,
       status: 'active', // 'active' | 'paused'
+      lockedOrders: new Set(),
       createdAt: new Date().toISOString(),
       stats: {
         totalSyncs: 0,
@@ -166,6 +202,7 @@ class StateManager {
     };
 
     this.pairs.set(pairId, newPair);
+    this.savePairs();
 
     // Update clients
     const clientA = this.clients.get(playerAId);
@@ -227,6 +264,7 @@ class StateManager {
     }
 
     this.pairs.delete(pairId);
+    this.savePairs();
     this.log('info', 'pair', `Trading pair removed: "${pair.name}"`, { pairId });
     this.broadcastState();
     return true;
@@ -242,6 +280,7 @@ class StateManager {
     if (settings.status !== undefined) pair.status = settings.status;
     if (settings.symbol !== undefined) pair.symbol = settings.symbol.toUpperCase();
 
+    this.savePairs();
     this.log('info', 'pair', `Updated pair settings for "${pair.name}"`, settings);
     this.evaluatePairSync(pairId, 'SETTINGS_UPDATE');
     this.broadcastState();
@@ -516,6 +555,7 @@ class StateManager {
 
       return {
         ...p,
+        lockedOrders: Array.from(p.lockedOrders || []),
         playerA: clientA ? {
           id: clientA.id,
           connected: clientA.connected,
@@ -541,8 +581,8 @@ class StateManager {
         syncStatus: {
           targetTPA: liqB > 0 ? liqB : null,
           targetTPB: liqA > 0 ? liqA : null,
-          inSyncA: ordersA.length > 0 && (pair.lockedOrders?.has(ordersA[0].orderId) || (liqB > 0 && Math.abs((parseFloat(ordersA[0].takeProfit) || 0) - liqB) <= 0.50)),
-          inSyncB: ordersB.length > 0 && (pair.lockedOrders?.has(ordersB[0].orderId) || (liqA > 0 && Math.abs((parseFloat(ordersB[0].takeProfit) || 0) - liqA) <= 0.50))
+          inSyncA: ordersA.length > 0 && ((p.lockedOrders && p.lockedOrders.has(ordersA[0].orderId)) || (liqB > 0 && Math.abs((parseFloat(ordersA[0].takeProfit) || 0) - liqB) <= 0.50)),
+          inSyncB: ordersB.length > 0 && ((p.lockedOrders && p.lockedOrders.has(ordersB[0].orderId)) || (liqA > 0 && Math.abs((parseFloat(ordersB[0].takeProfit) || 0) - liqA) <= 0.50))
         }
       };
     });

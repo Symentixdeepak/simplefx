@@ -76,26 +76,51 @@
     };
   }
 
+  // --- INITIAL HTTP STATE BOOTSTRAP ---
+
+  async function loadInitialState() {
+    try {
+      const res = await fetch('/api/state');
+      if (res.ok) {
+        const json = await res.json();
+        if (json && json.success && json.data) {
+          currentState = json.data;
+          renderDashboard();
+        }
+      }
+    } catch (err) {
+      console.warn('Initial state fetch error:', err);
+    }
+  }
+
   // --- RENDERING FUNCTIONS ---
 
   function renderDashboard() {
-    // Top stats
-    const connectedClients = currentState.clients.filter(c => c.connected);
-    connectedCountEl.textContent = connectedClients.length;
-    activePairsCountEl.textContent = currentState.pairs.filter(p => p.status === 'active').length;
-    pairsBadge.textContent = `${currentState.pairs.length} Pair${currentState.pairs.length === 1 ? '' : 's'}`;
+    try {
+      if (!currentState) return;
+      const clients = Array.isArray(currentState.clients) ? currentState.clients : [];
+      const pairs = Array.isArray(currentState.pairs) ? currentState.pairs : [];
 
-    // Render extensions chips
-    renderExtensionsChips();
+      // Top stats
+      const connectedClients = clients.filter(c => c && c.connected);
+      if (connectedCountEl) connectedCountEl.textContent = connectedClients.length;
+      if (activePairsCountEl) activePairsCountEl.textContent = pairs.filter(p => p && p.status === 'active').length;
+      if (pairsBadge) pairsBadge.textContent = `${pairs.length} Pair${pairs.length === 1 ? '' : 's'}`;
 
-    // Populate modal dropdowns
-    updateModalDropdowns();
+      // Render extensions chips
+      renderExtensionsChips();
 
-    // Render active pairs
-    renderPairs();
+      // Populate modal dropdowns
+      updateModalDropdowns();
 
-    // Render logs
-    renderLogs();
+      // Render active pairs
+      renderPairs();
+
+      // Render logs
+      renderLogs();
+    } catch (err) {
+      console.error('Error rendering dashboard:', err);
+    }
   }
 
   function renderExtensionsChips() {
@@ -145,7 +170,8 @@
   }
 
   function renderPairs() {
-    if (!currentState.pairs || currentState.pairs.length === 0) {
+    const pairs = Array.isArray(currentState.pairs) ? currentState.pairs : [];
+    if (pairs.length === 0) {
       pairsContainer.innerHTML = '';
       emptyPairsState.classList.remove('hidden');
       return;
@@ -153,7 +179,7 @@
 
     emptyPairsState.classList.add('hidden');
 
-    pairsContainer.innerHTML = currentState.pairs.map(pair => {
+    pairsContainer.innerHTML = pairs.map(pair => {
       const isPaused = pair.status !== 'active';
       const modeText = pair.mode === 'first_trade' ? 'Cascade (1st Trade)' : 'All Open Trades';
 
@@ -162,16 +188,19 @@
       const pB = pair.playerB;
 
       // Extract liquidation prices
-      const liqA = pA ? pA.liquidationPrice : 0;
-      const liqB = pB ? pB.liquidationPrice : 0;
+      const liqA = pA ? (parseFloat(pA.liquidationPrice) || 0) : 0;
+      const liqB = pB ? (parseFloat(pB.liquidationPrice) || 0) : 0;
 
       // Net PnL formatting
-      const netPnl = pair.netPnl || 0;
+      const netPnl = parseFloat(pair.netPnl) || 0;
       const netPnlClass = netPnl >= 0 ? 'text-green' : 'text-red';
       const netPnlSign = netPnl >= 0 ? '+' : '';
 
       // Delta formatting
-      const netDelta = (pair.netDeltaVolume || 0).toFixed(2);
+      const netDelta = (parseFloat(pair.netDeltaVolume) || 0).toFixed(2);
+
+      const inSyncA = Boolean(pair.syncStatus && pair.syncStatus.inSyncA);
+      const inSyncB = Boolean(pair.syncStatus && pair.syncStatus.inSyncB);
 
       return `
         <div class="pair-card" id="card-${pair.id}">
@@ -179,7 +208,7 @@
           <div class="pair-header">
             <div class="pair-header-left">
               <span class="pair-title">${escapeHtml(pair.name)}</span>
-              <span class="pair-tag">${escapeHtml(pair.symbol)}</span>
+              <span class="pair-tag">${escapeHtml(pair.symbol || 'XAUUSD')}</span>
               <span class="pair-mode-tag">${modeText}</span>
               <span class="badge ${isPaused ? 'text-amber' : 'text-green'}">
                 ${isPaused ? '⏸️ Paused' : '⚡ Active'}
@@ -216,8 +245,8 @@
                   <div class="flow-label">Player A Liq ➔ Player B TP</div>
                   <div class="flow-value">
                     <span>${liqA > 0 ? liqA.toFixed(2) : '--'}</span>
-                    <span class="${pair.syncStatus.inSyncB ? 'text-green' : 'text-amber'}">
-                      ${pair.syncStatus.inSyncB ? '✓ Synced' : (liqA > 0 ? '⟳ Syncing' : 'No Liq')}
+                    <span class="${inSyncB ? 'text-green' : 'text-amber'}">
+                      ${inSyncB ? '✓ Synced' : (liqA > 0 ? '⟳ Syncing' : 'No Liq')}
                     </span>
                   </div>
                 </div>
@@ -227,8 +256,8 @@
                   <div class="flow-label">Player B Liq ➔ Player A TP</div>
                   <div class="flow-value">
                     <span>${liqB > 0 ? liqB.toFixed(2) : '--'}</span>
-                    <span class="${pair.syncStatus.inSyncA ? 'text-green' : 'text-amber'}">
-                      ${pair.syncStatus.inSyncA ? '✓ Synced' : (liqB > 0 ? '⟳ Syncing' : 'No Liq')}
+                    <span class="${inSyncA ? 'text-green' : 'text-amber'}">
+                      ${inSyncA ? '✓ Synced' : (liqB > 0 ? '⟳ Syncing' : 'No Liq')}
                     </span>
                   </div>
                 </div>
@@ -261,7 +290,7 @@
           <div class="player-header">
             <div class="player-identity">
               <span class="player-label">${label}</span>
-              <span class="player-id-pill">${escapeHtml(clientId)}</span>
+              <span class="player-id-pill" onclick="copyToClipboard('${escapeHtml(clientId)}')">${escapeHtml(clientId)}</span>
             </div>
             <span class="badge text-red">Disconnected</span>
           </div>
@@ -273,11 +302,13 @@
     }
 
     const account = player.account || {};
-    const orders = player.orders || [];
-    const isOnline = player.connected;
-    const totalPnl = player.totalPnl || 0;
+    const orders = Array.isArray(player.orders) ? player.orders : [];
+    const isOnline = Boolean(player.connected);
+    const totalPnl = parseFloat(player.totalPnl) || 0;
     const pnlClass = totalPnl >= 0 ? 'text-green' : 'text-red';
     const pnlSign = totalPnl >= 0 ? '+' : '';
+    const liqPrice = parseFloat(player.liquidationPrice) || 0;
+    const oppLiq = parseFloat(oppositeLiq) || 0;
 
     return `
       <div class="player-panel ${panelClass}">
@@ -298,11 +329,11 @@
         <div class="player-stats-row">
           <div class="mini-stat">
             <div class="title">Balance</div>
-            <div class="val">${(account.balance || 0).toFixed(2)} USDT</div>
+            <div class="val">${(parseFloat(account.balance) || 0).toFixed(2)} USDT</div>
           </div>
           <div class="mini-stat">
             <div class="title">Bonus</div>
-            <div class="val">${(account.bonus || 0).toFixed(2)} USDT</div>
+            <div class="val">${(parseFloat(account.bonus) || 0).toFixed(2)} USDT</div>
           </div>
           <div class="mini-stat">
             <div class="title">Total PnL</div>
@@ -317,7 +348,7 @@
             <span class="sub">Mirrors to opposite player's Take Profit</span>
           </div>
           <div class="liq-price-display">
-            ${player.liquidationPrice > 0 ? player.liquidationPrice.toFixed(2) : 'None / Safe'}
+            ${liqPrice > 0 ? liqPrice.toFixed(2) : 'None / Safe'}
           </div>
         </div>
 
@@ -325,10 +356,10 @@
         <div class="orders-table-wrapper">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 0.5rem;">
             <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
-              Open Positions (${orders.length}) | Vol: ${(player.totalVolume || 0).toFixed(2)}
+              Open Positions (${orders.length}) | Vol: ${(parseFloat(player.totalVolume) || 0).toFixed(2)}
             </span>
             <span style="font-size: 0.7rem; color: var(--text-dim);">
-              Target TP: <strong class="text-cyan">${oppositeLiq > 0 ? oppositeLiq.toFixed(2) : '--'}</strong>
+              Target TP: <strong class="text-cyan">${oppLiq > 0 ? oppLiq.toFixed(2) : '--'}</strong>
             </span>
           </div>
 
@@ -354,7 +385,7 @@
                   const isFirst = idx === 0;
                   const isTarget = mode === 'first_trade' ? isFirst : true;
                   const curTP = parseFloat(ord.takeProfit);
-                  const isSynced = oppositeLiq > 0 && !isNaN(curTP) && Math.abs(curTP - oppositeLiq) <= 0.50;
+                  const isSynced = oppLiq > 0 && !isNaN(curTP) && Math.abs(curTP - oppLiq) <= 0.50;
                   const sideClass = (ord.side || '').toUpperCase() === 'BUY' ? 'side-buy' : 'side-sell';
                   const ordPnl = parseFloat(ord.profitCurrency) || 0;
                   const ordPnlClass = ordPnl >= 0 ? 'text-green' : 'text-red';
@@ -575,6 +606,7 @@
       .replace(/'/g, '&#039;');
   }
 
-  // Initial connection
+  // Initial state bootstrap and WebSocket connection
+  loadInitialState();
   connectWebSocket();
 })();
