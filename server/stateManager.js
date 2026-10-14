@@ -88,9 +88,10 @@ class StateManager {
     return client;
   }
 
-  unregisterClient(clientId) {
+  unregisterClient(clientId, ws) {
     const client = this.clients.get(clientId);
-    if (client) {
+    // Only mark disconnected if this closing socket is indeed the client's current active socket
+    if (client && (!ws || client.ws === ws)) {
       client.connected = false;
       client.ws = null;
       client.lastSeen = Date.now();

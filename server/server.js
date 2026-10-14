@@ -179,12 +179,12 @@ wss.on('connection', (ws, req) => {
     }
   });
 
-  ws.on('close', () => {
+  ws.on('close', (code, reason) => {
     if (isDashboard) {
       dashboardSockets.delete(ws);
     }
     if (clientId) {
-      stateManager.unregisterClient(clientId);
+      stateManager.unregisterClient(clientId, ws);
     }
   });
 

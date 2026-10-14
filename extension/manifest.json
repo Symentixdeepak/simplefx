@@ -5,7 +5,8 @@
   "description": "Automated Cross-Liquidation to Take-Profit synchronization for SimpleFX WebTrader",
   "permissions": [
     "storage",
-    "tabs"
+    "tabs",
+    "alarms"
   ],
   "host_permissions": [
     "https://app.simplefx.com/*",

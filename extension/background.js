@@ -1,14 +1,15 @@
-// SimpleFX Cross-Hedge Service Worker (background.js)
+// SimpleFX Cross-Hedge Service Worker (background.js) - Stable Keep-Alive Architecture
 let ws = null;
 let clientId = null;
 let serverUrl = 'http://localhost:3000';
 let isConnected = false;
 let pingInterval = null;
+let reconnectTimer = null;
 let lastScrapeData = null;
 let pairingInfo = null;
 
 // Initialize Client ID and Settings
-async function initSettings() {
+async function initSettings(forceReconnect = false) {
   const data = await chrome.storage.local.get(['clientId', 'serverUrl', 'pairingInfo', 'lastScrape']);
   if (data.clientId) {
     clientId = data.clientId;
@@ -29,7 +30,7 @@ async function initSettings() {
     lastScrapeData = data.lastScrape;
   }
 
-  connectWebSocket();
+  connectWebSocket(forceReconnect);
 }
 
 function getWsUrl() {
@@ -44,9 +45,26 @@ function getWsUrl() {
   return cleanUrl;
 }
 
-function connectWebSocket() {
+function connectWebSocket(force = false) {
+  // If already open or connecting, and not a forced reconnect, do nothing!
+  if (!force && ws) {
+    if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+      console.log('[SimpleFX Extension] WebSocket is already connected or connecting. Skipping duplicate call.');
+      return;
+    }
+  }
+
+  // Clear any existing reconnect timer
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+
+  // If forcing reconnect, cleanly close existing socket without triggering onclose loop
   if (ws) {
     try {
+      ws.onclose = null;
+      ws.onerror = null;
       ws.close();
     } catch (e) {}
     ws = null;
@@ -62,6 +80,11 @@ function connectWebSocket() {
       console.log('[SimpleFX Extension] Connected to Hub Server!');
       isConnected = true;
 
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+
       // Register unique client ID
       ws.send(JSON.stringify({
         type: 'REGISTER_CLIENT',
@@ -71,13 +94,13 @@ function connectWebSocket() {
         }
       }));
 
-      // Start ping heartbeat
+      // Start ping heartbeat every 20 seconds
       clearInterval(pingInterval);
       pingInterval = setInterval(() => {
         if (ws && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'PING' }));
         }
-      }, 25000);
+      }, 20000);
 
       // If we already have scrape data, send it now
       if (lastScrapeData) {
@@ -88,11 +111,10 @@ function connectWebSocket() {
     ws.onmessage = async (event) => {
       try {
         const msg = JSON.parse(event.data);
-        console.log('[SimpleFX Extension] Received message from server:', msg.type);
 
         switch (msg.type) {
           case 'REGISTER_ACK':
-            console.log('[SimpleFX Extension] Registration confirmed by Hub');
+            console.log('[SimpleFX Extension] Registration confirmed by Hub for', clientId);
             break;
 
           case 'PAIR_STATUS_UPDATE':
@@ -119,20 +141,33 @@ function connectWebSocket() {
       }
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event) => {
       isConnected = false;
       clearInterval(pingInterval);
-      console.log('[SimpleFX Extension] WebSocket closed. Reconnecting in 3s...');
-      setTimeout(connectWebSocket, 3000);
+      pingInterval = null;
+      ws = null;
+
+      console.log(`[SimpleFX Extension] WebSocket closed (code: ${event.code}, reason: ${event.reason || 'none'}). Reconnecting in 3s...`);
+
+      if (!reconnectTimer) {
+        reconnectTimer = setTimeout(() => {
+          reconnectTimer = null;
+          connectWebSocket();
+        }, 3000);
+      }
     };
 
     ws.onerror = (err) => {
-      isConnected = false;
-      console.error('[SimpleFX Extension] WebSocket error:', err);
+      console.error('[SimpleFX Extension] WebSocket encountered error:', err);
     };
   } catch (err) {
-    console.error('[SimpleFX Extension] Connection failed:', err);
-    setTimeout(connectWebSocket, 3000);
+    console.error('[SimpleFX Extension] WebSocket connection creation failed:', err);
+    if (!reconnectTimer) {
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        connectWebSocket();
+      }, 3000);
+    }
   }
 }
 
@@ -201,7 +236,8 @@ async function getSimpleFxTabs() {
     url: [
       'https://app.simplefx.com/*',
       'http://localhost:3000/mock.html*',
-      'http://127.0.0.1:3000/mock.html*'
+      'http://127.0.0.1:3000/mock.html*',
+      'https://*.onrender.com/mock.html*'
     ]
   });
 }
@@ -212,6 +248,31 @@ async function notifySimpleFxTabs(message) {
     chrome.tabs.sendMessage(tab.id, message).catch(() => {});
   }
 }
+
+// --- KEEP-ALIVE PORT FROM CONTENT SCRIPT ---
+// Keeps the MV3 service worker active while SimpleFX tab is open
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name === 'sfx_keepalive') {
+    port.onMessage.addListener((msg) => {
+      // Keep worker alive, reconnect if disconnected
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        connectWebSocket();
+      }
+    });
+  }
+});
+
+// Periodic alarm to prevent service worker from sleeping
+try {
+  chrome.alarms.create('sfx_keepalive_alarm', { periodInMinutes: 1 });
+  chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === 'sfx_keepalive_alarm') {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        connectWebSocket();
+      }
+    }
+  });
+} catch (e) {}
 
 // Message Listener for content.js and popup.js
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -237,7 +298,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.type === 'RECONNECT_WEBSOCKET') {
-    initSettings().then(() => sendResponse({ reconnected: true }));
+    initSettings(true).then(() => sendResponse({ reconnected: true }));
     return true;
   }
 });

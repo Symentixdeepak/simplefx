@@ -461,8 +461,32 @@
       characterData: true
     });
 
-    // Fallback polling interval every 1 second
-    setInterval(triggerScrapeAndSend, 1000);
+    // Establish persistent keep-alive port to background service worker
+    let keepAlivePort = null;
+    function maintainKeepAlive() {
+      try {
+        keepAlivePort = chrome.runtime.connect({ name: 'sfx_keepalive' });
+        keepAlivePort.onDisconnect.addListener(() => {
+          keepAlivePort = null;
+          setTimeout(maintainKeepAlive, 1000);
+        });
+      } catch (e) {
+        setTimeout(maintainKeepAlive, 1000);
+      }
+    }
+    maintainKeepAlive();
+
+    setInterval(() => {
+      if (keepAlivePort) {
+        try {
+          keepAlivePort.postMessage({ type: 'KEEPALIVE_PING' });
+        } catch (e) {
+          maintainKeepAlive();
+        }
+      } else {
+        maintainKeepAlive();
+      }
+    }, 15000);
 
     // Initial scrape
     triggerScrapeAndSend();
