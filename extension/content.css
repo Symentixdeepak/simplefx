@@ -1,0 +1,96 @@
+/* SimpleFX HedgeMaster In-Page HUD Overlay */
+.sfx-hud-container {
+  position: fixed;
+  bottom: 60px;
+  right: 20px;
+  z-index: 999999;
+  background: rgba(13, 18, 28, 0.92);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 242, 254, 0.3);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #fff;
+  width: 250px;
+  font-size: 12px;
+  overflow: hidden;
+  user-select: none;
+  transition: all 0.2s ease;
+}
+
+.sfx-hud-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(0, 242, 254, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: grab;
+}
+
+.sfx-hud-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sfx-hud-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+}
+
+.sfx-hud-title {
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: #00f2fe;
+}
+
+.sfx-hud-toggle {
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 4px;
+}
+
+.sfx-hud-toggle:hover {
+  color: #fff;
+}
+
+.sfx-hud-body {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sfx-hud-hidden {
+  display: none !important;
+}
+
+.sfx-hud-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sfx-hud-label {
+  color: #9ca3af;
+  font-size: 11px;
+}
+
+.sfx-hud-val {
+  font-weight: 600;
+  font-family: monospace;
+}
+
+.sfx-hud-val.text-amber {
+  color: #fbbf24;
+}

@@ -1,0 +1,14 @@
+{
+  "name": "simplefx-cross-hedge-suite",
+  "version": "1.0.0",
+  "description": "Cross-Hedging and Liquidation-to-TP Synchronization System for SimpleFX",
+  "scripts": {
+    "start": "node server/server.js",
+    "server": "node server/server.js",
+    "dev": "node --watch server/server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "ws": "^8.18.0"
+  }
+}

@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SimpleFX WebTrader (Simulator Mode)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Rubik:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --brand53: rgb(53, 71, 89);
+      --brand58: rgb(32, 42, 56);
+      --brand36: #01e4ff;
+      --bg-dark: #121924;
+      --text-gray: #8896a6;
+      --text-white: #ffffff;
+      --green: #22c55e;
+      --red: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg-dark);
+      color: var(--text-white);
+      font-family: Roboto, sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      user-select: none;
+    }
+    header {
+      background: #182230;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--brand53);
+    }
+    .brand-title {
+      font-size: 16px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .sim-tag {
+      background: #f59e0b;
+      color: #000;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .controls-bar {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      padding: 12px 20px;
+      background: #16202e;
+      border-bottom: 1px solid var(--brand53);
+    }
+    .controls-bar button {
+      padding: 6px 14px;
+      border: none;
+      border-radius: 4px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .btn-buy { background: var(--green); color: #fff; }
+    .btn-sell { background: var(--red); color: #fff; }
+    .btn-close-all { background: #374151; color: #fff; }
+    .btn-sim-liq { background: #d97706; color: #fff; }
+    
+    .workspace {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+    
+    /* SimpleFX Table Structure */
+    .table__section {
+      margin-bottom: 4px;
+    }
+    .table__row {
+      display: flex;
+      align-items: center;
+      background: #1a2533;
+      border: 1px solid #233144;
+      border-radius: 4px;
+      min-height: 40px;
+      font-size: 13px;
+      padding: 0 10px;
+      transition: background 0.15s;
+    }
+    .table__row:hover {
+      background: #202d3d;
+    }
+    .positions-table__row--summary {
+      background: #1e2b3c;
+      font-weight: 600;
+      border-left: 3px solid #00f2fe;
+    }
+    .table__cell {
+      padding: 6px 8px;
+      display: flex;
+      align-items: center;
+    }
+    .positions-table__cell--aggregation { width: 30px; }
+    .positions-table__cell--symbol { width: 140px; }
+    .positions-table__cell--optionsStart { width: 40px; }
+    .positions-table__cell--id { width: 110px; font-family: monospace; color: var(--text-gray); }
+    .positions-table__cell--side { width: 70px; font-weight: 700; }
+    .positions-table__cell--volume { width: 70px; }
+    .positions-table__cell--openTime { width: 160px; color: var(--text-gray); font-size: 12px; }
+    .positions-table__cell--openPrice { width: 90px; }
+    .positions-table__cell--takeProfit { width: 110px; }
+    .positions-table__cell--stopLoss { width: 80px; }
+    .positions-table__cell--profitPoints { width: 70px; }
+    .positions-table__cell--profitAccountCurrency { width: 110px; font-weight: 600; }
+    .positions-table__cell--estimatedLiquidationPrice { width: 120px; font-weight: 700; color: #fbbf24; }
+    .positions-table__cell--optionsEnd { width: 40px; }
+
+    .positive { color: var(--green); }
+    .negative { color: var(--red); }
+    .text-medium-gray { color: #8896a6; }
+    .text-xxs { font-size: 10px; margin-left: 4px; }
+    .positions-table__aggregation-badge {
+      background: #334155;
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-size: 11px;
+    }
+
+    /* Edit small icon */
+    icon.edit-small {
+      display: inline-flex;
+      cursor: pointer;
+      margin-right: 6px;
+      color: #01e4ff;
+    }
+    icon.edit-small:hover {
+      filter: brightness(1.2);
+    }
+    icon.edit-small svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    /* Footer Summary */
+    footer {
+      background: #141c28;
+      border-top: 1px solid var(--brand53);
+      padding: 10px 20px;
+    }
+    .footer__summary--intro-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 30px;
+    }
+    .summary__wrapper {
+      display: flex;
+      align-items: center;
+      gap: 25px;
+    }
+    .summary {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+    .summary__title { color: var(--text-gray); }
+    .summary__value { font-weight: 600; }
+
+    /* Take Profit Dialog Panel (Exact SimpleFX Angular Material Classes) */
+    .stop-level-dialog-panel {
+      position: fixed;
+      z-index: 9999;
+      background: var(--brand58);
+      border: 2px solid var(--brand53);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      border-radius: 4px;
+      padding: 16px;
+      min-width: 280px;
+    }
+    .table-stop-level-input {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .table-item-edit-popup__form {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .table-stop-level-input__control {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+    .value-spinner__amount {
+      width: 180px;
+      padding: 8px 12px;
+      background: #111827;
+      border: 1px solid var(--brand53);
+      border-radius: 4px;
+      color: #fff;
+      font-family: Rubik, sans-serif;
+      font-size: 14px;
+      text-align: right;
+      outline: none;
+    }
+    .value-spinner__amount:focus {
+      border-color: var(--brand36);
+    }
+    .table-item-edit-popup__form-controls {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      margin-top: 10px;
+    }
+    .btn-simple {
+      background: transparent;
+      border: 1px solid var(--brand53);
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .btn-simple.text-gray {
+      color: var(--text-gray);
+    }
+    .btn-simple:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .btn-simple:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand-title">
+      <span>SimpleFX WebTrader</span>
+      <span class="sim-tag">DOM SIMULATOR</span>
+    </div>
+    <div style="font-size: 13px; color: var(--text-gray);">
+      Target Symbol: <strong style="color: #fff;">Gold($) XAUUSD</strong> | Market Price: <span id="current-gold-price" style="font-weight:700; color:#fbbf24;">4156.86</span>
+    </div>
+  </header>
+
+  <div class="controls-bar">
+    <span style="font-size: 12px; color: var(--text-gray);">Test Actions:</span>
+    <button class="btn-buy" id="btn-buy-lot">+ Open 0.01 Long (BUY)</button>
+    <button class="btn-sell" id="btn-sell-lot">+ Open 0.01 Short (SELL)</button>
+    <button class="btn-buy" id="btn-buy-6x">+ Open 6x 0.01 Longs (User Scenario A)</button>
+    <button class="btn-sell" id="btn-sell-6x">+ Open 6x 0.01 Shorts (User Scenario B)</button>
+    <button class="btn-sim-liq" id="btn-hit-tp">Simulate 1 Trade Hit TP (Remaining: -1)</button>
+    <button class="btn-close-all" id="btn-clear-orders">Clear All Positions</button>
+  </div>
+
+  <div class="workspace">
+    <div class="cdk-virtual-scroll-content-wrapper">
+      <div id="positions-container">
+        <!-- Rendered by mock.js matching SimpleFX DOM exactly -->
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer__summary--intro-wrapper flex-row">
+      <div class="summary__wrapper">
+        <div class="summary">
+          <div class="summary__title">Bonus</div>
+          <div class="summary__value" id="summary-bonus">40.05 USDT</div>
+        </div>
+        <div class="summary">
+          <div class="summary__title">Balance</div>
+          <div class="summary__value" id="summary-balance">153.35 USDT</div>
+        </div>
+        <div class="summary">
+          <div class="summary__title">Profit &amp; Swap</div>
+          <div class="summary__value negative" id="summary-profit">-3.5035 USDT</div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="mock.js"></script>
+</body>
+</html>

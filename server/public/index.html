@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SimpleFX HedgeMaster | Cross-Liquidation Take Profit Sync</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="top-nav">
+      <div class="nav-brand">
+        <div class="brand-logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>SimpleFX <span>HedgeMaster</span></h1>
+          <p class="subtitle">Cross-Liquidation to Take-Profit Automation Engine</p>
+        </div>
+      </div>
+
+      <div class="nav-stats">
+        <div class="stat-pill">
+          <span class="pulse-dot" id="ws-indicator"></span>
+          <span id="ws-status">Connecting...</span>
+        </div>
+        <div class="stat-pill">
+          <span class="label">Connected Browsers:</span>
+          <span class="value" id="connected-count">0</span>
+        </div>
+        <div class="stat-pill">
+          <span class="label">Active Pairs:</span>
+          <span class="value text-cyan" id="active-pairs-count">0</span>
+        </div>
+      </div>
+
+      <div class="nav-actions">
+        <a href="/mock.html" target="_blank" class="btn btn-secondary" title="Open Simulated SimpleFX page for instant testing">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Open Test Simulator
+        </a>
+        <button id="btn-open-add-pair" class="btn btn-primary">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          Add Trading Pair
+        </button>
+      </div>
+    </header>
+
+    <!-- Connected Extensions Quickbar -->
+    <section class="extensions-bar">
+      <div class="bar-title">
+        <span>Connected Browser Extensions:</span>
+        <span class="hint">(Extensions online and ready to pair)</span>
+      </div>
+      <div id="extensions-chips-list" class="chips-container">
+        <div class="empty-chips">No browser extensions connected yet. Load the extension in your browsers to connect.</div>
+      </div>
+    </section>
+
+    <!-- Main Pairs Container -->
+    <main class="main-content">
+      <div class="section-header">
+        <div class="section-title">
+          <h2>Active Hedging Pairs</h2>
+          <span class="badge" id="pairs-badge">0 Pairs</span>
+        </div>
+        <div class="section-legend">
+          <span class="legend-item"><span class="dot dot-sync"></span> Player A Liq ➔ Player B Take Profit</span>
+          <span class="legend-item"><span class="dot dot-sync-reverse"></span> Player B Liq ➔ Player A Take Profit</span>
+        </div>
+      </div>
+
+      <!-- Pairs List -->
+      <div id="pairs-container" class="pairs-grid">
+        <!-- Injected via JavaScript -->
+      </div>
+
+      <!-- Empty State -->
+      <div id="empty-pairs-state" class="empty-state">
+        <div class="empty-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+          </svg>
+        </div>
+        <h3>No Hedging Pairs Configured</h3>
+        <p>Link two browser extensions (Player A and Player B) to automatically mirror each other's liquidation prices into take profit orders.</p>
+        <div class="setup-steps">
+          <div class="step-card">
+            <div class="step-num">1</div>
+            <h4>Browser 1 (Player A)</h4>
+            <p>Open SimpleFX tab. Open extension popup and click <strong>Copy Client ID</strong>.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-num">2</div>
+            <h4>Browser 2 (Player B)</h4>
+            <p>Open 2nd SimpleFX browser/profile. Open extension popup and copy its Client ID.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-num">3</div>
+            <h4>Create Pair</h4>
+            <p>Click <strong>Add Trading Pair</strong> above and paste both IDs. Automation begins immediately!</p>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="document.getElementById('btn-open-add-pair').click()">
+          Create Your First Pair Now
+        </button>
+      </div>
+
+      <!-- Live Audit Log Section -->
+      <section class="audit-log-section">
+        <div class="log-header">
+          <div class="log-title">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="4 17 10 11 4 5"></polyline>
+              <line x1="12" y1="19" x2="20" y2="19"></line>
+            </svg>
+            <h3>Real-Time Synchronization & Audit Terminal</h3>
+          </div>
+          <div class="log-controls">
+            <button id="btn-clear-logs" class="btn btn-xs btn-outline">Clear Logs</button>
+          </div>
+        </div>
+        <div id="audit-log-body" class="log-body">
+          <!-- Log entries injected here -->
+        </div>
+      </section>
+    </main>
+
+    <!-- Modal: Add Trading Pair -->
+    <div id="modal-add-pair" class="modal-backdrop hidden">
+      <div class="modal-window">
+        <div class="modal-header">
+          <h3>Create New Hedging Pair</h3>
+          <button class="modal-close" id="modal-close-btn">&times;</button>
+        </div>
+        <form id="form-add-pair" class="modal-body">
+          <div class="form-group">
+            <label for="input-pair-name">Pair Label / Name</label>
+            <input type="text" id="input-pair-name" placeholder="e.g. Gold Arbitrage #1 (XAUUSD)" required>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="select-player-a">Player A Client ID (Long/Primary)</label>
+              <div class="input-with-select">
+                <input type="text" id="input-player-a" placeholder="e.g. SFX-A8F2-XXXX" required>
+                <select id="select-player-a-dropdown">
+                  <option value="">-- Or choose connected browser --</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="select-player-b">Player B Client ID (Short/Opposite)</label>
+              <div class="input-with-select">
+                <input type="text" id="input-player-b" placeholder="e.g. SFX-C3D4-YYYY" required>
+                <select id="select-player-b-dropdown">
+                  <option value="">-- Or choose connected browser --</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="input-symbol">Target Asset Symbol</label>
+              <input type="text" id="input-symbol" value="XAUUSD" placeholder="e.g. XAUUSD, BTCUSD">
+              <span class="field-hint">Matches against SimpleFX symbol in table</span>
+            </div>
+
+            <div class="form-group">
+              <label for="select-mode">Cascade Strategy Mode</label>
+              <select id="select-mode">
+                <option value="first_trade" selected>First Open Trade (Cascade 1-by-1) [Recommended]</option>
+                <option value="all_trades">All Open Trades Simultaneously</option>
+              </select>
+              <span class="field-hint">When 1st trade hits TP/liq, next trade auto-adjusts to new liq</span>
+            </div>
+          </div>
+
+          <div class="form-group checkbox-group">
+            <label class="custom-checkbox">
+              <input type="checkbox" id="check-auto-sync" checked>
+              <span class="checkbox-box"></span>
+              <span class="checkbox-label">
+                <strong>Enable Auto-Execution</strong>
+                <span class="subtext">Automatically inject and set Take Profit on SimpleFX whenever liquidation prices change</span>
+              </span>
+            </label>
+          </div>
+
+          <div id="modal-error-msg" class="form-error hidden"></div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="modal-cancel-btn">Cancel</button>
+            <button type="submit" class="btn btn-primary">Link & Activate Pair</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

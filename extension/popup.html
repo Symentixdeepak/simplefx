@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SimpleFX Cross-Hedge</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-wrapper">
+    <!-- Header -->
+    <header class="popup-header">
+      <div class="header-brand">
+        <div class="brand-dot"></div>
+        <h2>SimpleFX <span>HedgeMaster</span></h2>
+      </div>
+      <span class="version-tag">v1.0</span>
+    </header>
+
+    <!-- Prominent Unique Client ID Card -->
+    <div class="id-card">
+      <div class="id-label">YOUR UNIQUE EXTENSION ID</div>
+      <div class="id-value-box">
+        <span id="client-id-display">Generating...</span>
+        <button id="btn-copy-id" class="btn-copy" title="Copy ID to Clipboard">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          <span id="copy-btn-text">COPY ID</span>
+        </button>
+      </div>
+      <div class="id-hint">Paste this ID into the Web Dashboard to create a pair with your second browser.</div>
+    </div>
+
+    <!-- Status Indicators -->
+    <div class="status-grid">
+      <div class="status-item">
+        <span class="status-dot" id="server-status-dot"></span>
+        <div class="status-info">
+          <div class="status-title">Hub Server</div>
+          <div class="status-val" id="server-status-val">Connecting...</div>
+        </div>
+      </div>
+
+      <div class="status-item">
+        <span class="status-dot" id="tab-status-dot"></span>
+        <div class="status-info">
+          <div class="status-title">SimpleFX Tab</div>
+          <div class="status-val" id="tab-status-val">Checking...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pairing Status Banner -->
+    <div class="pairing-banner" id="pairing-banner">
+      <div class="pairing-icon">🔗</div>
+      <div class="pairing-text">
+        <div class="pairing-title" id="pairing-title">Pairing Status</div>
+        <div class="pairing-desc" id="pairing-desc">Unpaired. Add to dashboard pair.</div>
+      </div>
+    </div>
+
+    <!-- Live Data Snapshot Card -->
+    <div class="stats-card">
+      <div class="stats-card-header">
+        <span>CURRENT TAB CAPTURE</span>
+        <span id="last-update-time">Waiting for data...</span>
+      </div>
+      <div class="stats-row">
+        <div class="stat-col">
+          <div class="stat-label">Open Positions</div>
+          <div class="stat-num text-cyan" id="stat-positions">0</div>
+        </div>
+        <div class="stat-col">
+          <div class="stat-label">Total Volume</div>
+          <div class="stat-num" id="stat-volume">0.00</div>
+        </div>
+        <div class="stat-col">
+          <div class="stat-label">Est. Liquidation</div>
+          <div class="stat-num text-amber" id="stat-liq">--</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Server Connection Card (Render / Local) -->
+    <div class="server-config-card">
+      <div class="config-header">
+        <span class="config-label">HUB SERVER URL (RENDER / CLOUD)</span>
+        <button id="btn-regen-id" class="btn-text-amber" title="Regenerate Client ID">New ID</button>
+      </div>
+      <div class="url-input-row">
+        <input type="text" id="server-url-input" value="http://localhost:3000" placeholder="https://your-app.onrender.com">
+        <button id="btn-save-url" class="btn-save">CONNECT</button>
+      </div>
+      <div class="url-hint">Enter your Render URL (e.g. <code>https://*.onrender.com</code>) or <code>http://localhost:3000</code></div>
+    </div>
+
+    <!-- Footer Action -->
+    <div class="popup-footer">
+      <button id="btn-open-dashboard" class="btn-primary-full">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"></path>
+        </svg>
+        Open Web Dashboard
+      </button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
