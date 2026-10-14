@@ -354,14 +354,15 @@
 
         <!-- Orders Table -->
         <div class="orders-table-wrapper">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 0.5rem;">
-            <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
+          <div class="orders-header-meta">
+            <span class="orders-count-vol">
               Open Positions (${orders.length}) | Vol: ${(parseFloat(player.totalVolume) || 0).toFixed(2)}
             </span>
-            <span style="font-size: 0.7rem; color: var(--text-dim);">
+            <span class="orders-target-tp">
               Target TP: <strong class="text-cyan">${oppLiq > 0 ? oppLiq.toFixed(2) : '--'}</strong>
             </span>
           </div>
+          ${orders.length > 0 ? `<div class="mobile-scroll-hint"><span>⇄</span> Swipe table horizontally to see all columns</div>` : ''}
 
           ${orders.length === 0 ? `
             <div style="padding: 1.5rem; text-align: center; color: var(--text-dim); font-size: 0.85rem;">
